@@ -7,8 +7,6 @@ from sqlalchemy import select, delete
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 from datetime import datetime, timezone, timedelta
-from utils.confirm_email import generate_email_token, send_confirmation_email, confirm_email_token
-
 
 
 
