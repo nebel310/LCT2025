@@ -1,31 +1,46 @@
 import uvicorn
+import logging
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database import create_tables, delete_tables
 from router.auth import router as auth_router
+from router.predict import router as predict_router
+from model import ner_model
 
 
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await delete_tables()
-    print('База очищена')
-    await create_tables()
-    print('База готова к работе')
+    # Настройка логирования
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    
+    # Пропускаем БД для тестирования NER
+    logger.info('Режим тестирования NER - БД отключена')
+    
+    # Загрузка NER модели
+    try:
+        await ner_model.load_model()
+        logger.info('NER модель загружена успешно')
+    except Exception as e:
+        logger.error(f'Ошибка загрузки NER модели: {e}')
+        # Не останавливаем приложение, если модель не загрузилась
+    
     yield
-    print('Выключение')
+    
+    logger.info('Выключение приложения')
 
 
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
     openapi_schema = get_openapi(
-        title="Your App",
+        title="Пятёрочка NER API",
         version="1.0.0",
-        description="Base nebel's FastApi template with JWT Auth",
+        description="API для поиска товаров с использованием NER (Named Entity Recognition). Включает авторизацию JWT и анализ сущностей в текстовых запросах.",
         routes=app.routes,
     )
     openapi_schema["components"]["securitySchemes"] = {
@@ -52,12 +67,15 @@ def custom_openapi():
 
 app = FastAPI(lifespan=lifespan)
 app.openapi = custom_openapi
-app.include_router(auth_router)
+
+# Подключение роутеров
+# app.include_router(auth_router)  # Отключено для тестирования NER
+app.include_router(predict_router)
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500"],  # Тут адрес фронтенда
+    allow_origins=["*"],  # Разрешаем все источники для локальной разработки
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
